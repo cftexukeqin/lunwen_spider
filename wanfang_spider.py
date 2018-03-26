@@ -2,9 +2,8 @@ import requests
 from bs4 import BeautifulSoup as bs
 import re
 import time
-import os
-import sys
 import pandas
+from retrying import retry
 
 url = "http://www.wanfangdata.com.cn/search/searchList.do?searchType=all&showType=&searchWord=%E9%92%88%E7%81%B8%E5%87%8F%E8%82%A5&isTriggerTag="
 
@@ -14,14 +13,14 @@ title_lists = []
 summary_lists = []
 auth_lists = []
 auth_per_page = []
-
+@retry(stop_max_attempt_number = 3)
 def get_url(url,search_type):
     header = {
     "User-Agent":"Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36",
     "Host":"www.wanfangdata.com.cn",
     "Connection":"keep-alive"
     }
-    proxies = { "http": "http://61.135.217.7:80", "http": "http://180.173.48.100:53281", }   
+    # proxies = { "http": "http://61.135.217.7:80", "http": "http://180.173.48.100:53281", }
     
     res = requests.get(url,headers=header)
     soup = bs(res.text,'lxml')
@@ -84,13 +83,11 @@ def main():
                 all_page_urllists = get_url(new_url, type)
 
             for j in all_page_urllists:
-                time.sleep(3)
                 total = get_info(j, type)
+                time.sleep(2)
         except Exception as e:
             print(e)
         else:
-            time.sleep(5)
-            print('5秒后程序自动退出...')
             break
     df =  pandas.DataFrame(total)
     df.to_excel(file_name+'.xlsx')
@@ -100,7 +97,9 @@ if __name__ == "__main__":
 Auth:                                                       DX.Ssssss
 DateTime:                                                  2018-03-23
 Version:                                                        1.0.V
-Tips:该脚本仅供学习，禁止商用。如有疑问请联系DX.Ssssss
+Tips:各种反爬机制，速度稍微快点都会被服务器断开连接，因此设置了访问延
+时，经过反复测试，发现每隔2-3秒访问网站可有效解决此问题，因此爬取时间较
+长，请耐心等待！
 *********************************************************************
     """)
     main()
