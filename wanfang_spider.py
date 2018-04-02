@@ -4,42 +4,64 @@ import re
 import time
 import pandas
 from retrying import retry
+from lxml import etree
 
 url = "http://www.wanfangdata.com.cn/search/searchList.do?searchType=all&showType=&searchWord=%E9%92%88%E7%81%B8%E5%87%8F%E8%82%A5&isTriggerTag="
 
+#所有的url 列表
 url_lists = []
+# 每页所有的url列表
 short_url_lists = []
+# 所有的论文标题
 title_lists = []
+# 所有的论文摘要
 summary_lists = []
-auth_lists = []
-auth_per_page = []
-@retry(stop_max_attempt_number = 3)
-def get_url(url,search_type):
+# 期刊论文作者
+perio_auth_lists = []
+# 期刊论文作者单位
+perio_company_lists = []
+# 学位论文作者
+degree_auth_lists = []
+
+collegss_per_page = []
+# 学位学校
+all_colleges = []
+# 学位
+degree_lists = []
+# 授予学位时间
+dtime_lists = []
+# 重试次数
+@retry(stop_max_attempt_number=3)
+# 所有url获取函数
+def get_url(url, search_type):
     header = {
-    "User-Agent":"Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36",
-    "Host":"www.wanfangdata.com.cn",
-    "Connection":"keep-alive"
+        "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36",
+        "Host": "www.wanfangdata.com.cn",
+        "Connection": "keep-alive"
     }
     # proxies = { "http": "http://61.135.217.7:80", "http": "http://180.173.48.100:53281", }
-    
-    res = requests.get(url,headers=header)
-    soup = bs(res.text,'lxml')
 
+    res = requests.get(url, headers=header)
+    soup = bs(res.text, 'lxml')
+    # 获取每页所有的url
     urls = soup.select('.icon_Miner')
     for i in urls:
         if search_type == 'p':
-            short_url_lists.append(("http://www.wanfangdata.com.cn/details/detail.do?_type=perio&id="+i['onclick'].split(',')[1]).replace("'",''))
+            short_url_lists.append(("http://www.wanfangdata.com.cn/details/detail.do?_type=perio&id=" +
+                                    i['onclick'].split(',')[1]).replace("'", ''))
         elif search_type == 'c':
-            short_url_lists.append(("http://www.wanfangdata.com.cn/details/detail.do?_type=conference&id="+i['onclick'].split(',')[1]).replace("'",''))
+            short_url_lists.append(("http://www.wanfangdata.com.cn/details/detail.do?_type=conference&id=" +
+                                    i['onclick'].split(',')[1]).replace("'", ''))
         elif search_type == 'd':
-            short_url_lists.append(("http://www.wanfangdata.com.cn/details/detail.do?_type=degree&id="+i['onclick'].split(',')[1]).replace("'",''))
+            short_url_lists.append(("http://www.wanfangdata.com.cn/details/detail.do?_type=degree&id=" +
+                                    i['onclick'].split(',')[1]).replace("'", ''))
     return short_url_lists
 
-def get_info(url,search_type):
-    
+# 获取每页的详细信息，
+def get_info(url, search_type):
     res = requests.get(url)
-    soup = bs(res.text,'lxml')
-
+    soup = bs(res.text, 'lxml')
+    selector = etree.HTML(res.text)
     titles = soup.select('.crumbs font')
     for title in titles:
         title_lists.append(title.text)
@@ -47,19 +69,63 @@ def get_info(url,search_type):
     summarys = soup.select('.abstract textarea')
     for i in summarys:
         summary_lists.append(i.text)
-    auths = soup.select('.college')
-    for auth in auths:
-        auth_per_page.append(auth.text)
 
+    # 根据检索类型：期刊、学位、会议，获取不同的信息
     if search_type == 'p':
-        total = list(zip(title_lists,auth_per_page,summary_lists))
+        auths = selector.xpath('//*[@id="div_a"]/div/div[2]/div[1]/ul/li[3]/div[2]/a/text()')
+        perio_auth_lists.append(tuple(auths))
+        company = selector.xpath('//*[@id="div_a"]/div/div[2]/div[1]/ul/li[4]/div[2]/a[1]/text()')
+        perio_company_lists.append(tuple(company))
+        collegss = soup.select('.college')
+        for college in collegss:
+            collegss_per_page.append(college.text)
+        total = list(zip(title_lists, collegss_per_page,perio_auth_lists,perio_company_lists,summary_lists))
     elif search_type == 'c':
-        total = list(zip(title_lists,summary_lists))
+        total = list(zip(title_lists, summary_lists))
+    elif search_type == 'd':
+        # 获取作者名称
+        auth_names = soup.select('#card01')
+        for i in auth_names:
+            degree_auth_lists.append(i.text)
+        # 获取学校名称
+        first_name = selector.xpath('//*[@id="div_a"]/div/div[2]/div[1]/ul/li[4]/div[2]/a[1]/text()')
+        all_colleges.extend(first_name)
+        university_name = selector.xpath('//ul[@class="info"]/li[3]/div[2]/a[1]/text()')
+        if len(university_name[0])>3:
+            all_colleges.extend(tuple(university_name))
+        # degree = soup.select('.author')
+        # for i in degree:
+        #     d_pattern = re.compile(r'[\u4e00-\u9fa5]')
+        #     d_name = re.search(d_pattern,str(i))
+        #     if d_name and d_name.group(1) != '中文':
+        #         print(d_name.group(1))
+        # 获取学位信息
+        d_pattern = re.compile('<div class="info_right author">([\u4e00-\u9fa5]+)</div>')
+        d_name = re.search(d_pattern,res.text)
+        degree_lists.append(d_name.group(1))
+        # d_time = soup.find_all('div',attrs={'class':'author'})
+        # 获取授予学位的时间
+        dtime_pattern = re.compile('<div class="info_right author">(\d{4})</div>')
+        d_time = re.search(dtime_pattern,res.text)
+        dtime_lists.append(d_time.group(1))
+        # d_time = selector.xpath('//*[@id="div_a"]/div/div[2]/div[1]/ul/li[8]/div[2]/text()')
+        # if len(d_time[0]) >4:
+        #     d_time = selector.xpath('//*[@id="div_a"]/div/div[2]/div[1]/ul/li[7]/div[2]/text()')
+        #     dtime_lists.extend(d_time)
+        # print(dtime_lists)
+        # u_name = soup.find_all('a',attrs={'href':'javascript:void(0)'})
+        # print(u_name)
+        # university_name = "".join("%s" %i for i in university_name)
+        # u_pattern = re.compile('<a href="javascript:void(0)" onclick="searchResult.*?>(.*?)</a>,',re.S)
+        # u_name = re.search(u_pattern,university_name)
+        # if u_name:
+        #     print(u_name.group(1))
+        total = list(zip(title_lists,degree_auth_lists,all_colleges,degree_lists,dtime_lists,summary_lists))
     else:
-        total = list(zip(title_lists,summary_lists))
-
+        total = list(zip(title_lists, summary_lists))
     return total
-                
+
+
 def main():
     while True:
         try:
@@ -69,19 +135,20 @@ def main():
             page_num = int(input('请输入要爬取的页数(每页默认50条数据)：'))
 
             if type == 'p':
-                base_url = "http://www.wanfangdata.com.cn/search/searchList.do?searchType=perio&pageSize=50&page={}&searchWord={}&order=correlation&showType=detail&isCheck=check&isHit=&isHitUnit=&firstAuthor=false&rangeParame=all"
+                base_url = "http://www.wanfangdata.com.cn/search/searchList.do?searchType=perio&pageSize=20&page={}&searchWord={}&order=correlation&showType=detail&isCheck=check&isHit=&isHitUnit=&firstAuthor=false&rangeParame=all"
             elif type == 'c':
-                base_url = "http://www.wanfangdata.com.cn/search/searchList.do?searchType=conference&pageSize=50&page={}&searchWord={}&order=correlation&showType=detail&isCheck=check&isHit=&isHitUnit=&firstAuthor=false&rangeParame=all"
+                base_url = "http://www.wanfangdata.com.cn/search/searchList.do?searchType=conference&pageSize=20&page={}&searchWord={}&order=correlation&showType=detail&isCheck=check&isHit=&isHitUnit=&firstAuthor=false&rangeParame=all"
             elif type == 'd':
-                base_url = "http://www.wanfangdata.com.cn/search/searchList.do?searchType=degree&pageSize=50&page={}&searchWord={}&order=correlation&showType=detail&isCheck=check&isHit=&isHitUnit=&firstAuthor=false&rangeParame=all"
+                base_url = "http://www.wanfangdata.com.cn/search/searchList.do?searchType=degree&pageSize=20&page={}&searchWord={}&order=correlation&showType=detail&isCheck=check&isHit=&isHitUnit=&firstAuthor=false&rangeParame=all"
             else:
-                base_url = "http://www.wanfangdata.com.cn/search/searchList.do?searchType=all&pageSize=50&page={}&searchWord={}&order=correlation&showType=detail&isCheck=check&isHit=&isHitUnit=&firstAuthor=false&rangeParame=all"
+                base_url = "http://www.wanfangdata.com.cn/search/searchList.do?searchType=all&pageSize=20&page={}&searchWord={}&order=correlation&showType=detail&isCheck=check&isHit=&isHitUnit=&firstAuthor=false&rangeParame=all"
             file_name = input('请输入文件名(默认保存在Excel中，只需输入文件名即可，如 期刊)：')
             print('正在检索...')
-            for i in range(start_page,int(start_page+page_num)):
+            # 构造所有的url，分别进行每页url的获取，结果保存到列表
+            for i in range(start_page, int(start_page + page_num)):
                 new_url = base_url.format(i, key_word)
                 all_page_urllists = get_url(new_url, type)
-
+            # 遍历url列表，对每个网页解析，获取信息
             for j in all_page_urllists:
                 total = get_info(j, type)
                 time.sleep(2)
@@ -89,8 +156,11 @@ def main():
             print(e)
         else:
             break
-    df =  pandas.DataFrame(total)
-    df.to_excel(file_name+'.xlsx')
+    # 结果保存到Excel 中
+    df = pandas.DataFrame(total)
+    df.to_excel(file_name + '.xlsx')
+
+
 if __name__ == "__main__":
     print("""
 *************************论文摘要分类爬取脚本*************************
