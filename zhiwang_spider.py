@@ -34,7 +34,6 @@ def get_info():
     driver.switch_to.frame('iframeResult')
     time.sleep(3)
     title = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,'#ctl00 > table > tbody > tr:nth-child(2) > td > table > tbody > tr:nth-child(2) > td:nth-child(2) > a')))
-    s
     print(title['href'])
     # doc = pq(html)
     # items = doc('.GridContent GridSingleRow GridRightColumn')
