@@ -138,7 +138,7 @@ def main():
             page_num = int(input('请输入要爬取的页数(每页默认50条数据)：'))
 
             if type == 'p':
-                base_url = "http://www.wanfangdata.com.cn/search/searchList.do?searchType=perio&pageSize=50&page={}&searchWord={}&order=correlation&showType=detail&isCheck=check&isHit=&isHitUnit=&firstAuthor=false&rangeParame=all"
+                base_url = "http://www.wanfangdata.com.cn/search/searchList.do?searchType=perio&pageSize=20&page={}&searchWord={}&order=correlation&showType=detail&isCheck=check&isHit=&isHitUnit=&firstAuthor=false&rangeParame=all"
             elif type == 'c':
                 base_url = "http://www.wanfangdata.com.cn/search/searchList.do?searchType=conference&pageSize=50&page={}&searchWord={}&order=correlation&showType=detail&isCheck=check&isHit=&isHitUnit=&firstAuthor=false&rangeParame=all"
             elif type == 'd':
@@ -155,26 +155,27 @@ def main():
             for j in all_page_urllists:
                 total = get_info(j, type)
                 time.sleep(3)
+            df = pandas.DataFrame(total)
+            # df.to_excel(file_name + '.xlsx')
+            df.to_csv('a.csv')
         except Exception as e:
             print(e)
         else:
             main()
         # 结果保存到Excel 中
-    df = pandas.DataFrame(total)
-    df.to_excel(file_name + '.xlsx')
 
 
 if __name__ == "__main__":
 
     print("""
-//                .-~~~~~~~~~-._       _.-~~~~~~~~~-.
-//            __.'              ~.   .~              `.__
-//          .'//                  \./                  \ \`.
-//        .'//                     |                     \ \`.
-//      .'// .-~"""""""~~~~-._     |     _,-~~~~"""""""~-.            \ \`.
-//    .'//.-"                 `-.  |  .-'                 "-.\ \`.
-//  .'//______.============-..   \ | /   ..-============.______\ \`.
-//.'______________________________\|/______________________________`.
+                .-~~~~~~~~~-._       _.-~~~~~~~~~-.
+            __.'              ~.   .~              `.__
+          .'//                  \./                  \ \`.
+        .'//                     |                     \ \`.
+      .'// .-~"""""""~~~~-._     |     _,-~~~~"""""""~-.            \ \`.
+    .'//.-"                 `-.  |  .-'                 "-.\ \`.
+  .'//______.============-..   \ | /   ..-============.______\ \`.
+.'______________________________\|/______________________________`.
 
 --------------------------论文摘要分类爬取脚本-------------------------
 Auth:                                                       DX.Ssssss
