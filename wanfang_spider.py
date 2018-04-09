@@ -138,7 +138,7 @@ def main():
             page_num = int(input('请输入要爬取的页数(每页默认50条数据)：'))
 
             if type == 'p':
-                base_url = "http://www.wanfangdata.com.cn/search/searchList.do?searchType=perio&pageSize=20&page={}&searchWord={}&order=correlation&showType=detail&isCheck=check&isHit=&isHitUnit=&firstAuthor=false&rangeParame=all"
+                base_url = "http://www.wanfangdata.com.cn/search/searchList.do?searchType=perio&pageSize=50&page={}&searchWord={}&order=correlation&showType=detail&isCheck=check&isHit=&isHitUnit=&firstAuthor=false&rangeParame=all"
             elif type == 'c':
                 base_url = "http://www.wanfangdata.com.cn/search/searchList.do?searchType=conference&pageSize=50&page={}&searchWord={}&order=correlation&showType=detail&isCheck=check&isHit=&isHitUnit=&firstAuthor=false&rangeParame=all"
             elif type == 'd':
@@ -156,7 +156,7 @@ def main():
                 total = get_info(j, type)
                 time.sleep(3)
             df = pandas.DataFrame(total)
-            # df.to_excel(file_name + '.xlsx')
+            df.to_excel(file_name + '.xlsx')
             df.to_csv('a.csv')
         except Exception as e:
             print(e)
